@@ -1,4 +1,4 @@
-import openai as OpenAI
+import openai
 import os
 import tiktoken as tk
 import threading
@@ -12,11 +12,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise EnvironmentError("OpenAI API key not found. Please set OPENAI_API_KEY environment variable.")
+openai.api_key = api_key
 
-# Set API key for OpenAI client
-client = OpenAI.Client(api_key=api_key)
-
-class Worker(threading.Thread):  # Inherit from threading.Thread for concurrent execution
+class Worker(threading.Thread):
     def __init__(self, api_key: str, task_queue, worker_queue):
         super().__init__()
         self.encoding = tk.get_encoding("cl100k_base")
@@ -26,7 +24,6 @@ class Worker(threading.Thread):  # Inherit from threading.Thread for concurrent 
         self.daemon = True
     
     def run(self):
-        """ Continuously fetch tasks and process them in a loop """
         logging.info(f"Worker {self.name} started and waiting for tasks.")
         while True:
             task = self.task_queue.get()
@@ -40,7 +37,6 @@ class Worker(threading.Thread):  # Inherit from threading.Thread for concurrent 
             except Exception as e:
                 logging.error(f"Error processing task {task} by Worker {self.name}: {e}")
             finally:
-                # Add the worker back to the worker queue once the task is done
                 self.worker_queue.put(self)
                 self.task_queue.task_done()
 
@@ -66,13 +62,12 @@ class Worker(threading.Thread):  # Inherit from threading.Thread for concurrent 
                 backup.write(code)
 
             logging.info(f"Worker {self.name} is editing file {file} for task: {task}")
-            token_count = self.count_tokens(code)
             user_input = f"Here is the current code:\n{code}\n\nYour task: {task}"
 
-            response = client.ChatCompletion.create(
-                model="gpt-4",  
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a code generator. Write code to solve the given task."},
+                    {"role": "system", "content": "You are a code generator."},
                     {"role": "user", "content": user_input}
                 ],
                 max_tokens=1500,
